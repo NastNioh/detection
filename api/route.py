@@ -51,7 +51,7 @@ async def upload_image(file: UploadFile, user_description: str = Form(...)):
         image_base64 = image_tools.encode_image_to_base64(file_path)
         ollama_tools.start_ollama_server()
 
-        custom_prompt = f"L'utilisateur a signalé : '{user_description}'. Analysez l'image pour confirmer cette déclaration."
+        custom_prompt = f"L'utilisateur a signalé : '{user_description}'. Analysez l'image pour confirmer cette déclaration pour autorisation de retour de marchandise."
         explanation = ollama_tools.analyze_image_with_llava(image_base64, custom_prompt)
         decision = "RMA accepté" if "accepté" in explanation.lower() else "RMA refusé"
 
