@@ -4,6 +4,17 @@ from fonction import exif_tools, image_tools, model_tools, ollama_tools
 import os
 import shutil
 
+
+#reconnaisnce
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from database.db import get_db
+from services_reconnaissance.face_recognition import capture_face, recognize_face
+
+#reconnaissance
+
 # Initialiser l'API FastAPI
 app = FastAPI()
 
@@ -66,6 +77,38 @@ async def upload_image(file: UploadFile, user_description: str = Form(...)):
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse : {str(e)}")
     finally:
         ollama_tools.stop_ollama_server()
+
+
+
+
+#reconnaissance
+
+class CaptureRequest(BaseModel):
+    name: str
+    image: str
+
+class RecognizeRequest(BaseModel):
+    image: str
+
+@router.post("/capture_face/")
+async def capture_face_route(request: CaptureRequest, db: Session = Depends(get_db)):
+    """ Endpoint pour capturer et enregistrer un visage """
+    try:
+        message = capture_face(request.name, request.image, db)
+        return {"message": message}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/recognize_face/")
+async def recognize_face_route(request: RecognizeRequest, db: Session = Depends(get_db)):
+    """ Endpoint pour reconnaître un visage """
+    try:
+        match = recognize_face(request.image, db)
+        return {"match": match}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 
 # Ajouter le routeur à l'application FastAPI
 app.include_router(router)
