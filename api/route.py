@@ -111,4 +111,65 @@ async def recognize_face_route(request: RecognizeRequest, db: Session = Depends(
 
 
 # Ajouter le routeur à l'application FastAPI
+# Routes de scraping
+@router.get("/platforms")
+async def get_platforms():
+    """Get list of available platforms"""
+    return {
+        "platforms": list(PLATFORM_SCRAPERS.keys())
+    }
+
+@router.get("/search/{platform}/{query}")
+async def search_products(platform: str, query: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """
+    Search for products across specified platform
+    
+    Parameters:
+    - platform: Platform to search on (leboncoin, amazon, vinted)
+    - query: Search query
+    - limit: Maximum number of results (default: 100)
+    """
+    if platform not in PLATFORM_SCRAPERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Platform '{platform}' not supported. Available platforms: {list(PLATFORM_SCRAPERS.keys())}"
+        )
+        
+    try:
+        scraper = PLATFORM_SCRAPERS[platform]
+        results = await scraper.search(query, limit)
+        return results
+    except Exception as e:
+        logging.error(f"Error searching on {platform}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/search/all/{query}")
+async def search_all_platforms(query: str, limit: int = 100) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Search for products across all available platforms
+    
+    Parameters:
+    - query: Search query
+    - limit: Maximum number of results per platform (default: 100)
+    """
+    results = {}
+    errors = []
+    
+    for platform, scraper in PLATFORM_SCRAPERS.items():
+        try:
+            platform_results = await scraper.search(query, limit)
+            results[platform] = platform_results
+        except Exception as e:
+            logging.error(f"Error searching on {platform}: {str(e)}")
+            errors.append({"platform": platform, "error": str(e)})
+            results[platform] = []
+            
+    if errors:
+        return {
+            "results": results,
+            "errors": errors
+        }
+    
+    return {"results": results}
+
 app.include_router(router)
